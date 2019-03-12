@@ -84,7 +84,7 @@ module Kafka
           messages_for_broker[broker] ||= MessageBuffer.new
           messages_for_broker[broker].concat(messages, topic: topic, partition: partition)
         rescue Kafka::Error => e
-          @logger.error "Could not connect to leader for partition #{topic}/#{partition}: #{e.message}"
+          @logger.error "ruby-kafka: Could not connect to leader for partition #{topic}/#{partition}: #{e.message}"
 
           @instrumenter.instrument("topic_error.producer", {
             topic: topic,
@@ -104,7 +104,7 @@ module Kafka
 
       messages_for_broker.each do |broker, message_buffer|
         begin
-          @logger.info "Sending #{message_buffer.size} messages to #{broker}"
+          @logger.info "ruby-kafka: Sending #{message_buffer.size} messages to #{broker}"
 
           records_for_topics = {}
 
@@ -132,7 +132,7 @@ module Kafka
 
           handle_response(broker, response, records_for_topics) if response
         rescue ConnectionError => e
-          @logger.error "Could not connect to broker #{broker}: #{e}"
+          @logger.error "ruby-kafka: Could not connect to broker #{broker}: #{e}"
 
           # Mark the cluster as stale in order to force a cluster metadata refresh.
           @cluster.mark_as_stale!
@@ -177,22 +177,22 @@ module Kafka
             })
           end
         rescue Kafka::CorruptMessage
-          @logger.error "Corrupt message when writing to #{topic}/#{partition} on #{broker}"
+          @logger.error "ruby-kafka: Corrupt message when writing to #{topic}/#{partition} on #{broker}"
         rescue Kafka::UnknownTopicOrPartition
-          @logger.error "Unknown topic or partition #{topic}/#{partition} on #{broker}"
+          @logger.error "ruby-kafka: Unknown topic or partition #{topic}/#{partition} on #{broker}"
           @cluster.mark_as_stale!
         rescue Kafka::LeaderNotAvailable
-          @logger.error "Leader currently not available for #{topic}/#{partition}"
+          @logger.error "ruby-kafka: Leader currently not available for #{topic}/#{partition}"
           @cluster.mark_as_stale!
         rescue Kafka::NotLeaderForPartition
-          @logger.error "Broker #{broker} not currently leader for #{topic}/#{partition}"
+          @logger.error "ruby-kafka: Broker #{broker} not currently leader for #{topic}/#{partition}"
           @cluster.mark_as_stale!
         rescue Kafka::RequestTimedOut
-          @logger.error "Timed out while writing to #{topic}/#{partition} on #{broker}"
+          @logger.error "ruby-kafka: Timed out while writing to #{topic}/#{partition} on #{broker}"
         rescue Kafka::NotEnoughReplicas
-          @logger.error "Not enough in-sync replicas for #{topic}/#{partition}"
+          @logger.error "ruby-kafka: Not enough in-sync replicas for #{topic}/#{partition}"
         rescue Kafka::NotEnoughReplicasAfterAppend
-          @logger.error "Messages written, but to fewer in-sync replicas than required for #{topic}/#{partition}"
+          @logger.error "ruby-kafka: Messages written, but to fewer in-sync replicas than required for #{topic}/#{partition}"
         else
           @logger.debug "Successfully appended #{records.count} messages to #{topic}/#{partition} on #{broker}"
 

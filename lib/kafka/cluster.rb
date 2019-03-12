@@ -375,16 +375,16 @@ module Kafka
           cluster_info = broker.fetch_metadata(topics: @target_topics)
 
           if cluster_info.brokers.empty?
-            @logger.error "No brokers in cluster"
+            @logger.error "ruby-kafka: No brokers in cluster"
           else
-            @logger.info "Discovered cluster metadata; nodes: #{cluster_info.brokers.join(', ')}"
+            @logger.info "ruby-kafka: Discovered cluster metadata; nodes: #{cluster_info.brokers.join(', ')}"
 
             @stale = false
 
             return cluster_info
           end
         rescue Error => e
-          @logger.error "Failed to fetch metadata from #{node}: #{e}"
+          @logger.error "ruby-kafka: Failed to fetch metadata from #{node}: #{e}"
           errors << [node, e]
         ensure
           broker.disconnect unless broker.nil?
@@ -445,7 +445,7 @@ module Kafka
           sleep 1
           retry
         rescue ConnectionError => e
-          @logger.error "Failed to get coordinator info from #{broker}: #{e}"
+          @logger.error "ruby-kafka: Failed to get coordinator info from #{broker}: #{e}"
         end
       end
 

@@ -192,14 +192,16 @@ module Kafka
         create_time: create_time
       )
 
+      @logger.info "kafka-ruby: producer.produce: buffer_size:#{buffer_size}, buffer_bytesize:#{buffer_bytesize}, message_bytesize:#{message.bytesize}, _pending_message_queue_size:#{@pending_message_queue.size}, _buffer_size:#{@buffer.size}, _pending_message_queue_bytesize:#{@pending_message_queue.bytesize}, _buffer_bytesize:#{@buffer.bytesize}"
+
       if buffer_size >= @max_buffer_size
         buffer_overflow topic,
-          "Cannot produce to #{topic}, max buffer size (#{@max_buffer_size} messages) reached"
+          "Cannot produce to #{topic}, max buffer size (#{@max_buffer_size} messages) reached (buffer_size: #{buffer_size})"
       end
 
       if buffer_bytesize + message.bytesize >= @max_buffer_bytesize
         buffer_overflow topic,
-          "Cannot produce to #{topic}, max buffer bytesize (#{@max_buffer_bytesize} bytes) reached"
+          "Cannot produce to #{topic}, max buffer bytesize (#{@max_buffer_bytesize} bytes) reached (buffer_bytesize: #{buffer_bytesize}, message_bytesize: #{message.bytesize})"
       end
 
       # If the producer is in transactional mode, all the message production
@@ -234,6 +236,9 @@ module Kafka
     # @raise [DeliveryFailed] if not all messages could be successfully sent.
     # @return [nil]
     def deliver_messages
+
+      @logger.info "kafka-ruby: producer.deliver_messages: buffer_size:#{buffer_size}, buffer_bytesize:#{buffer_bytesize}, _pending_message_queue_size:#{@pending_message_queue.size}, _buffer_size:#{@buffer.size}"
+
       # There's no need to do anything if the buffer is empty.
       return if buffer_size == 0
 
@@ -391,11 +396,11 @@ module Kafka
         if buffer_size.zero?
           break
         elsif attempt <= @max_retries
-          @logger.warn "Failed to send all messages; attempting retry #{attempt} of #{@max_retries} after #{@retry_backoff}s"
+          @logger.warn "ruby-kafka: Failed to send all messages; attempting retry #{attempt} of #{@max_retries} after #{@retry_backoff}s"
 
           sleep @retry_backoff
         else
-          @logger.error "Failed to send all messages; keeping remaining messages in buffer"
+          @logger.error "ruby-kafka: Failed to send all messages; keeping remaining messages in buffer"
           break
         end
       end
@@ -454,7 +459,7 @@ module Kafka
 
       if failed_messages.any?
         failed_messages.group_by(&:topic).each do |topic, messages|
-          @logger.error "Failed to assign partitions to #{messages.count} messages in #{topic}"
+          @logger.error "ruby-kafka: Failed to assign partitions to #{messages.count} messages in #{topic}"
         end
 
         @cluster.mark_as_stale!
@@ -491,6 +496,7 @@ module Kafka
       @instrumenter.instrument("buffer_overflow.producer", {
         topic: topic,
       })
+      @logger.error "ruby-kafka: producer.buffer_overflow: topic:#{topic}, message:#{message}"
 
       raise BufferOverflow, message
     end

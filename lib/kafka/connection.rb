@@ -134,10 +134,10 @@ module Kafka
 
       @last_request = nil
     rescue Errno::ETIMEDOUT => e
-      @logger.error "Timed out while trying to connect to #{self}: #{e}"
+      @logger.error "ruby-kafka: Timed out while trying to connect to #{self}: #{e}"
       raise ConnectionError, e
     rescue SocketError, Errno::ECONNREFUSED, Errno::EHOSTUNREACH => e
-      @logger.error "Failed to connect to #{self}: #{e}"
+      @logger.error "ruby-kafka: Failed to connect to #{self}: #{e}"
       raise ConnectionError, e
     end
 
@@ -166,7 +166,7 @@ module Kafka
 
       nil
     rescue Errno::ETIMEDOUT
-      @logger.error "Timed out while writing request #{@correlation_id}"
+      @logger.error "ruby-kafka: Timed out while writing request #{@correlation_id}"
       raise
     end
 
@@ -192,7 +192,7 @@ module Kafka
 
       return correlation_id, response
     rescue Errno::ETIMEDOUT
-      @logger.error "Timed out while waiting for response #{@correlation_id}"
+      @logger.error "ruby-kafka: Timed out while waiting for response #{@correlation_id}"
       raise
     end
 
@@ -205,7 +205,7 @@ module Kafka
         # sitting in the socket waiting to be read. If the response we just read
         # was to a previous request, we can safely skip it.
         if correlation_id < @correlation_id
-          @logger.error "Received out-of-order response id #{correlation_id}, was expecting #{@correlation_id}"
+          @logger.error "ruby-kafka: Received out-of-order response id #{correlation_id}, was expecting #{@correlation_id}"
         elsif correlation_id > @correlation_id
           raise Kafka::Error, "Correlation id mismatch: expected #{@correlation_id} but got #{correlation_id}"
         else

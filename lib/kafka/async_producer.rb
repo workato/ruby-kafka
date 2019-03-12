@@ -72,7 +72,7 @@ module Kafka
     # @param delivery_interval [Integer] if greater than zero, the number of
     #   seconds between automatic message deliveries.
     #
-    def initialize(sync_producer:, max_queue_size: 1000, delivery_threshold: 0, delivery_interval: 0, instrumenter:, logger:)
+    def initialize(sync_producer:, max_queue_size: 1000, delivery_threshold: 0, delivery_interval: 0, async_max_retries: 10, async_retry_backoff: 5, instrumenter:, logger:)
       raise ArgumentError unless max_queue_size > 0
       raise ArgumentError unless delivery_threshold >= 0
       raise ArgumentError unless delivery_interval >= 0
@@ -86,6 +86,8 @@ module Kafka
         queue: @queue,
         producer: sync_producer,
         delivery_threshold: delivery_threshold,
+        async_max_retries: async_max_retries,
+        async_retry_backoff: async_retry_backoff,
         instrumenter: instrumenter,
         logger: logger,
       )
@@ -184,16 +186,18 @@ module Kafka
     end
 
     class Worker
-      def initialize(queue:, producer:, delivery_threshold:, instrumenter:, logger:)
+      def initialize(queue:, producer:, delivery_threshold:, async_max_retries:, async_retry_backoff:, instrumenter:, logger:)
         @queue = queue
         @producer = producer
         @delivery_threshold = delivery_threshold
         @instrumenter = instrumenter
         @logger = logger
+        @retry_backoff = async_retry_backoff
+        @max_retries = async_max_retries
       end
 
       def run
-        @logger.info "Starting async producer in the background..."
+        @logger.info "ruby-kafka: Starting async producer in the background..."
 
         loop do
           operation, payload = @queue.pop
@@ -209,7 +213,7 @@ module Kafka
               # Deliver any pending messages first.
               @producer.deliver_messages
             rescue Error => e
-              @logger.error("Failed to deliver messages during shutdown: #{e.message}")
+              @logger.error("ruby-kafka: Failed to deliver messages during shutdown: #{e.message}")
 
               @instrumenter.instrument("drop_messages.async_producer", {
                 message_count: @producer.buffer_size + @queue.size,
@@ -223,14 +227,14 @@ module Kafka
           end
         end
       rescue Kafka::Error => e
-        @logger.error "Unexpected Kafka error #{e.class}: #{e.message}\n#{e.backtrace.join("\n")}"
-        @logger.info "Restarting in 10 seconds..."
+        @logger.error "ruby-kafka: Unexpected Kafka error #{e.class}: #{e.message}\n#{e.backtrace.join("\n")}"
+        @logger.info "ruby-kafka: Restarting in 10 seconds..."
 
         sleep 10
         retry
       rescue Exception => e
-        @logger.error "Unexpected Kafka error #{e.class}: #{e.message}\n#{e.backtrace.join("\n")}"
-        @logger.error "Async producer crashed!"
+        @logger.error "ruby-kafka: Unexpected Kafka error #{e.class}: #{e.message}\n#{e.backtrace.join("\n")}"
+        @logger.error "ruby-kafka: Async producer crashed!"
       ensure
         @producer.shutdown
       end
@@ -238,17 +242,28 @@ module Kafka
       private
 
       def produce(*args)
-        @producer.produce(*args)
-      rescue BufferOverflow
-        deliver_messages
-        retry
+        retry_count = 0
+        begin
+          @producer.produce(*args)
+        rescue BufferOverflow
+          deliver_messages
+
+          if retry_count < @max_retries 
+            retry_count += 1
+            @logger.error "ruby-kafka: async_producer:worker.produce: buffer_overflow failure: do retry: #{retry_count}, sleep #{@retry_backoff} sec"
+            sleep @retry_backoff
+            retry
+          else
+            @logger.error "ruby-kafka: async_producer:worker.produce: buffer_overflow failure: no retries, drop messages"
+          end
+        end
       end
 
       def deliver_messages
         @producer.deliver_messages
       rescue DeliveryFailed, ConnectionError => e
         # Failed to deliver messages -- nothing to do but log and try again later.
-        @logger.error("Failed to asynchronously deliver messages: #{e.message}")
+        @logger.error("ruby-kafka: Failed to asynchronously deliver messages: #{e.message}")
         @instrumenter.instrument("error.async_producer", { error: e })
       end
 
