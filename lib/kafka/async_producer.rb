@@ -105,6 +105,7 @@ module Kafka
     def produce(value, topic:, **options)
       ensure_threads_running!
 
+      @logger.info "ruby-kafka: async_producer.produce: _queue_size=#{@queue.size}"
       if @queue.size >= @max_queue_size
         buffer_overflow topic,
           "Cannot produce to #{topic}, max queue size (#{@max_queue_size} messages) reached"
@@ -250,7 +251,7 @@ module Kafka
 
           if retry_count < @max_retries 
             retry_count += 1
-            @logger.error "ruby-kafka: async_producer:worker.produce: buffer_overflow failure: do retry: #{retry_count}, sleep #{@retry_backoff} sec"
+            @logger.error "ruby-kafka: async_producer:worker.produce: buffer_overflow failure: do retry: retry_count=#{retry_count} sleep_time_sec=#{@retry_backoff}"
             sleep @retry_backoff
             retry
           else
