@@ -192,7 +192,11 @@ module Kafka
         create_time: create_time
       )
 
-      @logger.info "ruby-kafka: producer.produce: buffer_size=#{buffer_size} buffer_bytesize=#{buffer_bytesize} message_bytesize=#{message.bytesize} _pending_message_queue_size=#{@pending_message_queue.size} _buffer_size=#{@buffer.size} _pending_message_queue_bytesize=#{@pending_message_queue.bytesize} _buffer_bytesize=#{@buffer.bytesize}"
+      # @logger.info "ruby-kafka: producer.produce: buffer_size=#{buffer_size} buffer_bytesize=#{buffer_bytesize} message_bytesize=#{message.bytesize} _pending_message_queue_size=#{@pending_message_queue.size} _buffer_size=#{@buffer.size} _pending_message_queue_bytesize=#{@pending_message_queue.bytesize} _buffer_bytesize=#{@buffer.bytesize}"
+
+      if message.bytesize >= @max_buffer_bytesize
+        buffer_overflow topic, "Message is too big: message_bytesize=#{message.bytesize}"
+      end
 
       if buffer_size >= @max_buffer_size
         buffer_overflow topic,
@@ -237,7 +241,7 @@ module Kafka
     # @return [nil]
     def deliver_messages
 
-      @logger.info "ruby-kafka: producer.deliver_messages: buffer_size=#{buffer_size} buffer_bytesize=#{buffer_bytesize} _pending_message_queue_size=#{@pending_message_queue.size} _buffer_size=#{@buffer.size}"
+      # @logger.info "ruby-kafka: producer.deliver_messages: buffer_size=#{buffer_size} buffer_bytesize=#{buffer_bytesize} _pending_message_queue_size=#{@pending_message_queue.size} _buffer_size=#{@buffer.size}"
 
       # There's no need to do anything if the buffer is empty.
       return if buffer_size == 0

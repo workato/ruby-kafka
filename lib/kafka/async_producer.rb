@@ -76,6 +76,8 @@ module Kafka
       raise ArgumentError unless max_queue_size > 0
       raise ArgumentError unless delivery_threshold >= 0
       raise ArgumentError unless delivery_interval >= 0
+      raise ArgumentError unless async_max_retries >= 0
+      raise ArgumentError unless async_retry_backoff >= 0
 
       @queue = Queue.new
       @max_queue_size = max_queue_size
