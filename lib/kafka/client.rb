@@ -17,6 +17,20 @@ require "kafka/sasl_authenticator"
 
 module Kafka
   class Client
+    class SafeLogger
+      def initialize(logger)
+        @elogger = logger
+      end
+
+      %w[error info warn debug].each do |type|
+        define_method(type) do |*args|
+          @elogger.send(type, *args)
+        rescue StandardError => ex
+          puts "ruby-kafka: ERROR logger exception: type #{type}, ex.message #{ex.message}"
+        end
+      end
+    end
+
     # Initializes a new Kafka client.
     #
     # @param seed_brokers [Array<String>, String] the list of brokers used to initialize
@@ -68,7 +82,7 @@ module Kafka
                    sasl_gssapi_keytab: nil, sasl_plain_authzid: '', sasl_plain_username: nil, sasl_plain_password: nil,
                    sasl_scram_username: nil, sasl_scram_password: nil, sasl_scram_mechanism: nil,
                    sasl_over_ssl: true, ssl_ca_certs_from_system: false)
-      @logger = logger || Logger.new(nil)
+      @logger = SafeLogger.new(logger || Logger.new(nil))
       @instrumenter = Instrumenter.new(client_id: client_id)
       @seed_brokers = normalize_seed_brokers(seed_brokers)
 
