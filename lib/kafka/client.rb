@@ -24,9 +24,11 @@ module Kafka
 
       %w[error info warn debug].each do |type|
         define_method(type) do |*args|
-          @elogger.send(type, *args)
-        rescue StandardError => ex
-          puts "ruby-kafka: ERROR logger exception: type #{type}, ex.message #{ex.message}"
+          begin
+            @elogger.send(type, *args)
+          rescue StandardError => ex
+            puts "ruby-kafka: ERROR logger exception: type #{type}, ex.message #{ex.message}"
+          end
         end
       end
     end
