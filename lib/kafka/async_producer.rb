@@ -238,6 +238,9 @@ module Kafka
       rescue Exception => e
         @logger.error "ruby-kafka: Unexpected Kafka error #{e.class}: #{e.message}\n#{e.backtrace.join("\n")}"
         @logger.error "ruby-kafka: Async producer crashed!"
+        @instrumenter.instrument("drop_messages.async_producer", {
+          message_count: @producer.buffer_size + @queue.size,
+        })
       ensure
         @producer.shutdown
       end
